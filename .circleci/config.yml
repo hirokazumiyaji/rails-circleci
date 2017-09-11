@@ -1,6 +1,6 @@
 version: 2
 jobs:
-  build:
+  test:
     working_directory: ~/app
     docker:
       - image: circleci/ruby:2.4.1-node
@@ -38,3 +38,33 @@ jobs:
       - store_artifacts:
           path: /tmp/test-results
           destination: test-results
+  build-production:
+    working_directory: ~/app
+    docker:
+      image: circleci/ruby:2.4.1-node
+      environment:
+        RAILS_ENV: production
+      steps:
+        - checkout
+        - restore_cache:
+            key: production-vendor-bundle-{{ checksum "Gemfile.lock" }}
+        - run:
+            name: install dependencies
+            command: bundle install --deployment --jobs=4 --without development test --path vendor/bundle
+        - save_cache:
+            key: production-vendor-bundle-{{ checksum "Gemfile.lock" }}
+            paths:
+              - vendor/bundle
+        - run:
+            name: asset compile
+            command: bundle exec rake assets:precompile
+        - run:
+            name: package production source
+            command: |
+              ./bin/package.sh
+workflows:
+  version: 2
+  build_and_test:
+    jobs:
+      - test
+      - build-production
